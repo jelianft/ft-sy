@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JELIAN FT SYSTEM - Export Edition</title>
+    <style>
+        :root { --primary: #00ff88; --secondary: #00d4ff; --bg: #050505; --card: #111; --text: #eee; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 950px; margin: 0 auto; }
+        header { text-align: center; border-bottom: 2px solid var(--primary); padding-bottom: 15px; margin-bottom: 25px; }
+        .no-print { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid #333; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        label { color: var(--secondary); font-weight: 700; font-size: 0.8em; text-transform: uppercase; display: block; margin-bottom: 8px; }
+        select, .btn { width: 100%; padding: 14px; border-radius: 6px; border: 1px solid #444; background: #000; color: #fff; font-size: 15px; cursor: pointer; }
+        .btn-gen { background: var(--primary); color: #000; font-weight: 800; border: none; text-transform: uppercase; grid-column: span 2; }
+        .btn-pdf { background: #333; color: #fff; border: 1px solid #555; margin-top: 20px; font-weight: 700; display: none; }
+        .exercise-card { background: var(--card); border-radius: 10px; padding: 25px; margin-top: 20px; border: 1px solid #222; border-left: 6px solid var(--primary); page-break-inside: avoid; }
+        .ex-name { color: var(--primary); font-size: 1.3em; font-weight: 800; margin-bottom: 15px; display: block; text-transform: uppercase; }
+        .ex-exec { background: #000; padding: 18px; border-radius: 8px; border: 1px solid #333; font-size: 1.05em; line-height: 1.6; }
+        .ex-exec b { color: var(--secondary); display: block; margin-bottom: 8px; text-transform: uppercase; font-size: 0.85em; }
+        .params-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 15px; }
+        .param-item { background: #1a1a1a; padding: 10px; text-align: center; border-radius: 5px; border: 1px solid #333; }
+        .param-item b { display: block; font-size: 0.7em; color: var(--secondary); text-transform: uppercase; }
+
+        @media print {
+            .no-print, header h1::after { display: none !important; }
+            body { background: #fff !important; color: #000 !important; padding: 0; }
+            .container { max-width: 100%; }
+            .exercise-card { border: 1px solid #ccc; border-left: 10px solid #000; background: #fff; color: #000; margin-top: 10px; }
+            .ex-exec { background: #f9f9f9; border: 1px solid #ddd; color: #000; }
+            .ex-name { color: #000; border-bottom: 1px solid #eee; }
+            .param-item { border: 1px solid #ddd; background: #fff; }
+            .param-item b { color: #555; }
+            .btn-pdf { display: none !important; }
+            .protocol-title { color: #000 !important; margin-bottom: 30px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header><h1>JELIAN <span style="color:var(--primary)">FT SYSTEM</span></h1></header>
+
+    <div class="no-print">
+        <div>
+            <label>Región Anatómica</label>
+            <select id="region" onchange="updatePats()">
+                <option value="">-- Seleccionar --</option>
+                <option value="Cervical">🦒 Cervical</option>
+                <option value="Toracica">🧱 Torácica</option>
+                <option value="Lumbar">🧘 Lumbar</option>
+                <option value="Hombro">🛡️ Hombro</option>
+                <option value="Codo">肘 Codo</option>
+                <option value="Muñeca">🖐️ Muñeca y Mano</option>
+                <option value="Cadera">🐎 Cadera</option>
+                <option value="Rodilla">🦵 Rodilla</option>
+                <option value="Tobillo">🦶 Tobillo</option>
+            </select>
+        </div>
+        <div>
+            <label>Patología Diagnosticada</label>
+            <select id="patologia"></select>
+        </div>
+        <button class="btn btn-gen" onclick="render()">GENERAR PLAN TÉCNICO</button>
+    </div>
+
+    <div id="output"></div>
+    <button id="pdfBtn" class="btn btn-pdf" onclick="window.print()">📥 DESCARGAR PLAN EN PDF</button>
+</div>
+
+<script>
+const DB = {
+    Muñeca: {
+        p: ["Síndrome del Túnel Carpiano", "Tendinopatía de De Quervain", "Fractura de Escafoides", "Fractura de Colles", "Ganglión", "Dedo en Gatillo", "Inestabilidad Escafolunar", "Tendinopatía Extensores/Flexores", "Lesión Fibrocartílago Triangular", "Dedo en Martillo"],
+        e: [
+            {n:"Deslizamiento del nervio mediano", d:"Realiza esta secuencia de 5 pasos con el brazo extendido: 1. Puño cerrado neutro. 2. Dedos extendidos hacia el techo. 3. Muñeca extendida hacia atrás. 4. Pulgar hacia afuera (separado). 5. Gira la palma hacia el techo rítmicamente."},
+            {n:"Estiramiento de flexores", d:"Extiende el brazo al frente con el codo bloqueado y la palma mirando hacia adelante. Con la otra mano, tira de todos los dedos hacia atrás suavemente hasta sentir tensión en la cara interna del antebrazo."},
+            {n:"Estiramiento de extensores", d:"Brazo extendido al frente, palma mirando hacia el suelo. Flexiona la muñeca hacia abajo y, con la ayuda de la otra mano, presiona el dorso hacia ti hasta sentir estiramiento en la zona superior del antebrazo."},
+            {n:"Oposición de pulgar", d:"Forma un círculo perfecto uniendo la yema del pulgar con la yema del índice. Repite la presión con el dedo medio, anular y meñique uno por uno, buscando control motor y fuerza en la pinza."},
+            {n:"Deslizamientos tendinosos (Secuencia Completa)", d:"Sigue estas 5 posiciones estrictas: 1. Abierta (dedos y mano rectos). 2. Garra (dobla solo las puntas de los dedos). 3. Puño (cierra la mano completa con pulgar fuera). 4. 'L' (dobla los nudillos manteniendo los dedos rectos). 5. Puño plano (dobla los nudillos y las segundas falanges tocando la palma)."},
+            {n:"Desviación cubital/radial con peso", d:"Apoya el antebrazo en una mesa dejando la mano al aire. Mueve la muñeca de lado a lado (hacia el pulgar y hacia el meñique) sin mover el antebrazo. Usa una carga ligera."},
+            {n:"Extensión con banda elástica", d:"Coloca una goma elástica alrededor de las puntas de los 5 dedos unidos. Abre la mano expandiendo los dedos al máximo contra la resistencia de la banda y cierra lentamente."},
+            {n:"Pronosupinación controlada", d:"Sujeta un bastón por el extremo inferior. Con el codo pegado al cuerpo a 90°, gira la muñeca para que la palma mire al techo y luego al suelo de forma lenta y controlada."},
+            {n:"Apretar pelota de resistencia", d:"Sostén una pelota de espuma en la palma. Cierra todos los dedos aplicando una presión máxima constante durante 3 segundos y abre la mano por completo para relajar."},
+            {n:"Excéntricos de muñeca", d:"Sentado, apoya el antebrazo en el muslo con la palma hacia abajo y una pesa. Usa la mano sana para subir la pesa y bájala únicamente con la mano lesionada tardando 5 segundos."}
+        ]
+    },
+    Rodilla: {
+        p: ["Rotura LCA", "Rotura Meniscos", "Condromalacia Rotuliana", "Tendinopatía Rotuliana", "Síndrome Banda Iliotibial", "Esguince LLI", "Pata de Ganso", "Osgood-Schlatter", "Bursitis Prepatelar", "Quiste de Baker"],
+        e: [
+            {n:"Isométricos de cuádriceps", d:"Tumbado con la pierna estirada, coloca una toalla bajo la rodilla. Empuja la rodilla hacia abajo con fuerza contra la toalla, contrayendo el músculo frontal del muslo. Mantén 5 segundos."},
+            {n:"Elevación de pierna recta (SLR)", d:"Boca arriba, mantén una rodilla flexionada y la otra estirada. Eleva la pierna estirada hasta la altura de la rodilla opuesta, asegurando que la rodilla no se doble."},
+            {n:"Puentes de glúteo técnicos", d:"Tumbado con pies apoyados. Eleva la pelvis hasta alinear hombros, cadera y rodillas. Aprieta glúteos al máximo en la parte superior antes de bajar suavemente."},
+            {n:"Clamshells (Almejas)", d:"De lado con rodillas flexionadas a 90°. Abre la rodilla superior hacia el techo sin despegar los talones y sin permitir que la pelvis rote hacia atrás."},
+            {n:"Wall-sit (Sentadilla isométrica)", d:"Apoya la espalda contra una pared y baja hasta que las rodillas estén a 90°. Mantén la posición asegurando que el peso recae en los talones."},
+            {n:"Sentadilla excéntrica en declive", d:"Sitúa talones en una elevación. Baja lentamente (5 segundos) sobre la pierna lesionada. Al llegar abajo, apoya la pierna sana para subir con ambas."},
+            {n:"Step-ups laterales controlados", d:"Sube de lado a un escalón pequeño. Al bajar, hazlo muy lento, vigilando que la rodilla de apoyo se mantenga alineada con el pie, evitando que se hunda hacia adentro."},
+            {n:"Flexión de rodilla con banda", d:"Boca abajo, sujeta una banda al tobillo. Dobla la rodilla llevando el talón al glúteo contra la resistencia, controlando el retorno lento."},
+            {n:"Estiramiento de la banda iliotibial", d:"De pie, cruza la pierna afectada por detrás de la sana e inclina el tronco hacia el lado de la pierna sana mientras empujas la cadera hacia el lado opuesto."},
+            {n:"Equilibrio monopodal", d:"Mantente de pie sobre la pierna lesionada con la rodilla mínimamente flexionada. Intenta mantener la estabilidad 30 segundos buscando control total."}
+        ]
+    },
+    Codo: {
+        p: ["Codo de Tenista", "Codo de Golfista", "Síndrome Túnel Cubital", "Bursitis Olecraniana", "Osteocondritis Disecante", "Tendinopatía Bíceps Distal", "Inestabilidad Ligamento", "Codo de Niñera", "Fractura Cabeza Radio", "Neuropatía Radial"],
+        e: [
+            {n:"Excéntrico de extensores", d:"Antebrazo apoyado, palma abajo con pesa. Sube con la mano sana y baja muy despacio (5 seg) solo con la mano afectada."},
+            {n:"Excéntrico de flexores", d:"Antebrazo apoyado, palma arriba con pesa. Sube la pesa con la otra mano y controla el descenso muy lentamente hasta el máximo rango de extensión."},
+            {n:"Pronosupinación con martillo", d:"Sujeta un martillo por el mango. Con el codo a 90° pegado al costado, deja que el peso gire el antebrazo hacia afuera y adentro con control."},
+            {n:"Estiramiento pasivo sostenido", d:"Realiza el estiramiento de flexores y extensores manteniendo la tensión constante durante 30 segundos sin rebotes."},
+            {n:"Flexión de muñeca resistida", d:"Pisa una banda y sujeta el extremo palma arriba. Dobla la muñeca hacia el antebrazo y baja controladamente sin mover el codo."},
+            {n:"Deslizamiento del nervio cubital", d:"Flexiona codo y muñeca llevando palma hacia la oreja (antifaz) y luego extiende el brazo completamente hacia abajo."},
+            {n:"Bombeo de puño dinámico", d:"Abre y cierra la mano con fuerza y rapidez durante 1 minuto para aumentar el flujo sanguíneo y reducir rigidez tendinosa."},
+            {n:"Extensión de tríceps banda", d:"Fija banda en punto alto. Extiende el brazo hacia abajo bloqueando el tríceps al final. Retorna lento."},
+            {n:"Isométrico de bíceps 90°", d:"Sostén carga con el codo flexionado a 90°. Mantén la posición estática sin que el codo se separe del cuerpo 30 segundos."},
+            {n:"Masaje transverso (Cyriax)", d:"Aplica presión firme con dedos sobre el punto de dolor. Mueve los dedos de forma perpendicular a las fibras del tendón 2 minutos."}
+        ]
+    },
+    Hombro: {
+        p: ["Tendinopatía Manguito", "Bursitis Subacromial", "Lesión SLAP", "Luxación", "Hombro Congelado", "Inestabilidad", "Tendinopatía Bíceps", "Pinzamiento", "Artrosis AC", "Fractura Clavícula"],
+        e: [
+            {n:"Péndulos de Codman", d:"Inclina el tronco apoyado en mesa. Deja que el brazo cuelgue y genera un balanceo suave con el cuerpo para que el brazo haga círculos sin esfuerzo muscular."},
+            {n:"Rotación externa con banda", d:"Codo pegado a 90°. Tira de la banda hacia afuera alejando la mano del ombligo. Retrae omóplatos."},
+            {n:"Rotación interna con banda", d:"Tira de la banda hacia tu abdomen. Controla el regreso de la mano hacia la posición inicial para trabajar la fase de frenado."},
+            {n:"Retracción escapular activa", d:"Junta ambos omóplatos hacia la columna y hacia abajo. Imagina apretar un lápiz entre las escápulas. Mantén 5 segundos."},
+            {n:"Serrato Punch", d:"Boca arriba, brazo al techo. Empuja la mano más arriba despegando el hombro del suelo sin doblar el codo."},
+            {n:"Vuelos en plano escapular", d:"Eleva brazos lateralmente pero ligeramente adelantados (30°). No superes la altura del hombro. Pulgares ligeramente arriba."},
+            {n:"Estiramiento pectoral marco", d:"Antebrazos en marco de puerta. Da un paso suave al frente dejando que el pecho se abra, estirando la parte anterior."},
+            {n:"Face-pulls escápula", d:"Tira de la banda hacia tu frente, separando codos y juntando con fuerza los omóplatos al final."},
+            {n:"Caminata digital pared", d:"Ve 'caminando' con los dedos por la pared hacia arriba buscando el punto máximo de elevación sin dolor agudo."},
+            {n:"Isométrico de abducción", d:"De lado contra pared. Con brazo estirado, empuja lateralmente contra la pared de forma constante 10 segundos."}
+        ]
+    },
+    Cadera: {
+        p: ["Trocanteritis", "Choque F-A", "Pubalgia", "Labrum", "Meralgia Parestésica", "Cadera en Resorte", "Tendinopatía Psoas", "Desgarro Aductores", "Sinovitis", "Fractura de Estrés"],
+        e: [
+            {n:"Abducción lateral", d:"Tumbado de lado, eleva la pierna superior estirada y alineada. El talón debe subir primero para activar el glúteo medio."},
+            {n:"Puente de glúteo con banda", d:"Banda sobre rodillas. Haz el puente manteniendo tensión hacia afuera para que las rodillas no se cierren."},
+            {n:"Estiramiento de psoas", d:"Posición caballero, empuja pelvis adelante manteniendo espalda recta hasta sentir tensión en la ingle de la pierna apoyada."},
+            {n:"Monster Walk", d:"Banda en tobillos. En media sentadilla, da pasos laterales amplios manteniendo tensión y tronco estable."},
+            {n:"Isométrico de aductores", d:"Tumbado, rodillas dobladas. Aprieta una pelota firme entre las rodillas con fuerza durante 10 segundos."},
+            {n:"Estiramiento piramidal", d:"Cruza tobillo afecto sobre rodilla sana. Tira del muslo sano hacia el pecho hasta sentir tensión en el glúteo."},
+            {n:"Dead Bug", d:"Boca arriba. Baja brazo y pierna contraria lentamente sin que la zona lumbar se arquee o se separe del suelo."},
+            {n:"Copenhague Plank", d:"Plancha lateral apoyando rodilla superior en banco. Eleva cadera activando aductores. Mantén alineación."},
+            {n:"Rotación externa sentado", d:"Banda en tobillos. Rodillas juntas, separa los pies hacia afuera rotando la cadera. Regreso lento."},
+            {n:"Flexión cadera resistida", d:"De pie con banda en pie. Eleva rodilla al pecho contra resistencia y baja muy lentamente."}
+        ]
+    },
+    Tobillo: {
+        p: ["Esguince Lateral", "Fascitis Plantar", "Tendinopatía Aquilea", "Túnel Tarsiano", "Fractura Estrés", "Impingement Posterior", "Inestabilidad Crónica", "Tendinopatía Peroneos", "Neuroma Morton", "Sesamoiditis"],
+        e: [
+            {n:"Eversión con banda", d:"Sentado, banda al exterior del pie. Mueve el pie hacia afuera (meñique) contra la resistencia de la banda."},
+            {n:"Inversión con banda", d:"Sentado, banda al interior. Mueve el pie hacia adentro (hacia el otro pie) de forma lenta y controlada."},
+            {n:"Elevación talón excéntrica", d:"Baja el talón afectado muy lentamente por debajo del nivel de un escalón (6 seg). Sube con ambos."},
+            {n:"Equilibrio inestable", d:"A un pie sobre un cojín. Mantén equilibrio 45 segundos, permitiendo que el tobillo trabaje para estabilizarte."},
+            {n:"Recoger toalla con dedos", d:"Sentado, usa solo los dedos del pie para arrugar una toalla y traerla hacia ti completamente."},
+            {n:"Masaje con pelota / Frío", d:"Desliza planta sobre pelota de tenis o botella congelada. Presiona arco plantar desde talón a dedos 5 min."},
+            {n:"Caminar sobre talones", d:"Camina apoyando exclusivamente los talones. Las puntas de los pies deben mirar al techo para fortalecer tibial anterior."},
+            {n:"Estiramiento gemelo/sóleo", d:"En pared: pierna atrás recta (gemelo) y luego doblada (sóleo/Aquiles profundo)."},
+            {n:"Abecedario con el pie", d:"Dibuja todas las letras en el aire usando el dedo gordo como lápiz, moviendo solo el tobillo."},
+            {n:"Aterrizaje estable", d:"Salto pequeño adelante y aterriza sobre el pie afectado. Congela 3 segundos asegurando estabilidad."}
+        ]
+    },
+    Cervical: {
+        p: ["Cervicalgia Mecánica", "Rectificación Cervical", "Hernia Discal", "Latigazo Cervical", "Radiculopatía", "Síndrome Facetario", "Neuralgia Arnold", "Espondilosis", "Tortícolis", "Salida Torácica"],
+        e: [
+            {n:"Chin-tucks", d:"Desliza la cabeza atrás horizontalmente (sacando papada) sin bajar la mirada. Siente estiramiento en base del cráneo."},
+            {n:"Estiramiento trapecio", d:"Oreja al hombro del mismo lado. Presión mínima manual sobre la sien. Mantén el hombro opuesto bajo."},
+            {n:"Estiramiento escalenos", d:"Inclina cabeza lateralmente y gírala 30° hacia arriba (mirando al techo opuesto)."},
+            {n:"Isométricos cervicales", d:"Empuja contra mano en frente, nuca y laterales sin movimiento. 10 segundos por lado."},
+            {n:"Movilidad axial", d:"Gira la cabeza hacia un lado como mirando sobre el hombro. Mantén 3 segundos y cambia suavemente."},
+            {n:"Deslizamiento W-V pared", d:"Espalda en pared. Desliza brazos de W a V sin que codos o muñecas se despeguen."},
+            {n:"Estiramiento elevador", d:"Gira 45° y baja barbilla como mirando axila. Presiona suavemente la parte posterior del cráneo."},
+            {n:"Neurodinamia brazo", d:"Brazo estirado lateral. Inclina cabeza al lado contrario mientras doblas muñeca rítmicamente."},
+            {n:"Descenso escapular", d:"Eleva hombros al máximo y déjalos caer de golpe, buscando relajación total de la zona cervical."},
+            {n:"Respiración diafragmática", d:"Inhala inflando solo el abdomen, evitando que los hombros se eleven."}
+        ]
+    },
+    Toracica: {
+        p: ["Dorsalgia Postural", "Fracturas Compresión", "Neuralgia Intercostal", "Síndrome Tietze", "Escoliosis", "Hernia Discal", "Disfunción Costovertebral", "Cifosis Scheuermann", "Contractura Romboides", "Espondilitis Anquilosante"],
+        e: [
+            {n:"Extensión Foam Roller", d:"Rodillo bajo espalda media. Manos tras nuca, arquea la columna hacia atrás sobre el rodillo."},
+            {n:"Gato-Camello", d:"En cuadrupedia, arquea espalda arriba metiendo cabeza y húndela mirando al frente rítmicamente."},
+            {n:"Libro abierto", d:"De lado, abre brazo superior hacia suelo opuesto siguiendo la mano con la mirada. Rodillas juntas."},
+            {n:"Rotación cuadrupedia", d:"Mano en nuca. Lleva el codo hacia mano apoyo y luego al techo rotando espalda media."},
+            {n:"Postura niño estiramiento", d:"Siéntate en talones, estira brazos al frente. Camina con manos lateralmente para estirar costados."},
+            {n:"Remo con banda", d:"Tira de la banda llevando codos atrás y apretando omóplatos con fuerza."},
+            {n:"Cobra modificada", d:"Boca abajo, eleva pecho extendiendo brazos. Hombros lejos de orejas y pelvis apoyada."},
+            {n:"Y-W Raises", d:"Boca abajo, eleva brazos formando Y (pulgares techo) y baja doblando codos en W apretando espalda."},
+            {n:"Estiramiento pectoral", d:"Brazo en cada pared de esquina. Deja caer peso adelante para abrir caja torácica."},
+            {n:"Rotación sentada", d:"Sentado, cruza pierna y gira tronco usando brazo contrario como palanca sobre rodilla."}
+        ]
+    },
+    Lumbar: {
+        p: ["Lumbalgia Aguda", "Hernia Discal Lumbar", "Ciática", "Espondilolisis", "Espondilolistesis", "Estenosis Canal", "Síndrome Piramidal", "Sacroileítis", "Inestabilidad Lumbar", "Artrosis Facetaria"],
+        e: [
+            {n:"Bird-Dog", d:"En cuadrupedia, extiende simultáneamente brazo y pierna contraria. Espalda plana sin arquear lumbar."},
+            {n:"Plancha abdominal", d:"Cuerpo recto sobre antebrazos y puntas de pies. Activa abdomen sin que caiga la cadera."},
+            {n:"Plancha lateral", d:"Sobre codo y lateral de pie. Línea recta cabeza-pies. Mantén mirada al frente."},
+            {n:"Curl-up de McGill", d:"Manos bajo arco lumbar. Despega solo cabeza y hombros (2 cm) sin doblar la espalda."},
+            {n:"Puente unilateral", d:"Puente de glúteo con una pierna estirada en aire. Pelvis nivelada durante la subida."},
+            {n:"Abrazo de rodillas", d:"Tumbado, lleva rodillas al pecho. Balancea lateralmente para masajear zona lumbar."},
+            {n:"Basculación pélvica", d:"Tumbado, aplana lumbar contra suelo y luego sepárala creando pequeño arco de forma lenta."},
+            {n:"Estiramiento cuadrado", d:"Sentado pierna abierta. Inclina tronco lateral hacia ese pie pasando brazo por encima."},
+            {n:"Extensión McKenzie", d:"Boca abajo, extiende brazos arqueando zona lumbar. Pelvis relajada en el suelo."},
+            {n:"Nervio ciático (Slump)", d:"Sentado, encorva espalda, baja barbilla, estira pierna y mueve el tobillo arriba/abajo."}
+        ]
+    }
+};
+
+function updatePats() {
+    const r = document.getElementById('region').value;
+    const p = document.getElementById('patologia');
+    p.innerHTML = "";
+    if (DB[r]) DB[r].p.forEach(x => { let o = document.createElement('option'); o.value = x; o.innerText = x; p.appendChild(o); });
+}
+
+function render() {
+    const r = document.getElementById('region').value;
+    const pat = document.getElementById('patologia').value;
+    const out = document.getElementById('output');
+    const pdfBtn = document.getElementById('pdfBtn');
+    if (!r || !pat) return;
+    
+    out.innerHTML = `<h2 class="protocol-title" style="text-align:center; color:var(--primary); margin-top:30px; text-transform:uppercase;">PLAN DE REHABILITACIÓN: ${pat}</h2>`;
+    DB[r].e.forEach((ex, i) => {
+        out.innerHTML += `
+            <div class="exercise-card">
+                <span class="ex-name">${i+1}. ${ex.n}</span>
+                <div class="ex-exec"><b>GUÍA DE EJECUCIÓN:</b>${ex.d}</div>
+                <div class="params-grid">
+                    <div class="param-item"><b>Series</b><span>3 - 4</span></div>
+                    <div class="param-item"><b>Repeticiones</b><span>12 - 15</span></div>
+                    <div class="param-item"><b>Descanso</b><span>60 s</span></div>
+                </div>
+            </div>`;
+    });
+    pdfBtn.style.display = "block";
+}
+</script>
+</body>
+</html>
